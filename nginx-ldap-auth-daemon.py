@@ -1,7 +1,4 @@
-#!/bin/sh
-''''[ -z $LOG ] && export LOG=/dev/stdout # '''
-''''which python  >/dev/null && exec python  -u "$0" "$@" >> $LOG 2>&1 # '''
-
+#!/usr/bin/env python3
 # Copyright (C) 2014-2022 Nginx, Inc.
 
 import argparse
