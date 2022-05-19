@@ -6,18 +6,16 @@ import base64
 import os
 import signal
 import sys
+import threading
+from http.cookies import BaseCookie
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 
 import ldap
 from ldap.filter import escape_filter_chars
 
-if sys.version_info.major == 2:
-    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-    from Cookie import BaseCookie
-elif sys.version_info.major == 3:
-    from http.cookies import BaseCookie
-    from http.server import BaseHTTPRequestHandler, HTTPServer
-
-if not hasattr(__builtins__, "basestring"): basestring = (str, bytes)
+if not hasattr(__builtins__, "basestring"):
+    basestring = (str, bytes)
 
 #Listen = ('localhost', 8888)
 #Listen = "/tmp/auth.sock"    # Also uncomment lines in 'Requests are
@@ -27,12 +25,6 @@ if not hasattr(__builtins__, "basestring"): basestring = (str, bytes)
 # Different request processing models: select one
 # -----------------------------------------------------------------------------
 # Requests are processed in separate thread
-import threading
-
-if sys.version_info.major == 2:
-    from SocketServer import ThreadingMixIn
-elif sys.version_info.major == 3:
-    from socketserver import ThreadingMixIn
 
 
 class AuthHTTPServer(ThreadingMixIn, HTTPServer):
@@ -91,7 +83,7 @@ class AuthHandler(BaseHTTPRequestHandler):
 
         try:
             auth_decoded = base64.b64decode(auth_header[6:])
-            if sys.version_info.major == 3: auth_decoded = auth_decoded.decode("utf-8")
+            auth_decoded = auth_decoded.decode("utf-8")
             user, passwd = auth_decoded.split(':', 1)
 
         except:
