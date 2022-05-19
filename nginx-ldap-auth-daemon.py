@@ -4,26 +4,27 @@
 
 # Copyright (C) 2014-2022 Nginx, Inc.
 
-import sys
+import argparse
+import base64
 import os
 import signal
-import base64
+import sys
+
 import ldap
 from ldap.filter import escape_filter_chars
-import argparse
 
 if sys.version_info.major == 2:
+    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
     from Cookie import BaseCookie
-    from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 elif sys.version_info.major == 3:
     from http.cookies import BaseCookie
-    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from http.server import BaseHTTPRequestHandler, HTTPServer
 
 if not hasattr(__builtins__, "basestring"): basestring = (str, bytes)
 
 #Listen = ('localhost', 8888)
 #Listen = "/tmp/auth.sock"    # Also uncomment lines in 'Requests are
-                              # processed with UNIX sockets' section below
+# processed with UNIX sockets' section below
 
 # -----------------------------------------------------------------------------
 # Different request processing models: select one
@@ -36,8 +37,11 @@ if sys.version_info.major == 2:
 elif sys.version_info.major == 3:
     from socketserver import ThreadingMixIn
 
+
 class AuthHTTPServer(ThreadingMixIn, HTTPServer):
     pass
+
+
 # -----------------------------------------------------------------------------
 # Requests are processed in separate process
 #from SocketServer import ForkingMixIn
@@ -50,6 +54,7 @@ class AuthHTTPServer(ThreadingMixIn, HTTPServer):
 #class AuthHTTPServer(ThreadingUnixStreamServer, HTTPServer):
 #    pass
 # -----------------------------------------------------------------------------
+
 
 class AuthHandler(BaseHTTPRequestHandler):
 
@@ -72,8 +77,7 @@ class AuthHandler(BaseHTTPRequestHandler):
 
         if auth_cookie != None and auth_cookie != '':
             auth_header = "Basic " + auth_cookie
-            self.log_message("using username/password from cookie %s" %
-                             ctx['cookiename'])
+            self.log_message("using username/password from cookie %s" % ctx['cookiename'])
         else:
             self.log_message("using username/password from authorization header")
 
@@ -96,7 +100,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         except:
             self.auth_failed(ctx)
             return True
-       
+
         ctx['pass'] = passwd
         ctx['user'] = ldap.filter.escape_filter_chars(user)
 
@@ -114,9 +118,8 @@ class AuthHandler(BaseHTTPRequestHandler):
         else:
             return None
 
-
     # Log the error and complete the request with appropriate status
-    def auth_failed(self, ctx, errmsg = None):
+    def auth_failed(self, ctx, errmsg=None):
 
         msg = 'Error while ' + ctx['action']
         if errmsg:
@@ -153,8 +156,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         else:
             user = self.ctx['user']
 
-        sys.stdout.write("%s - %s [%s] %s\n" % (addr, user,
-                         self.log_date_time_string(), format % args))
+        sys.stdout.write("%s - %s [%s] %s\n" % (addr, user, self.log_date_time_string(), format % args))
 
     def log_error(self, format, *args):
         self.log_message(format, *args)
@@ -163,18 +165,18 @@ class AuthHandler(BaseHTTPRequestHandler):
 # Verify username/password against LDAP server
 class LDAPAuthHandler(AuthHandler):
     # Parameters to put into self.ctx from the HTTP header of auth request
-    params =  {
-             # parameter      header         default
-             'realm': ('X-Ldap-Realm', 'Restricted'),
-             'url': ('X-Ldap-URL', None),
-             'starttls': ('X-Ldap-Starttls', 'false'),
-             'disable_referrals': ('X-Ldap-DisableReferrals', 'false'),
-             'basedn': ('X-Ldap-BaseDN', None),
-             'template': ('X-Ldap-Template', '(cn=%(username)s)'),
-             'binddn': ('X-Ldap-BindDN', ''),
-             'bindpasswd': ('X-Ldap-BindPass', ''),
-             'cookiename': ('X-CookieName', '')
-        }
+    params = {
+        # parameter      header         default
+        'realm': ('X-Ldap-Realm', 'Restricted'),
+        'url': ('X-Ldap-URL', None),
+        'starttls': ('X-Ldap-Starttls', 'false'),
+        'disable_referrals': ('X-Ldap-DisableReferrals', 'false'),
+        'basedn': ('X-Ldap-BaseDN', None),
+        'template': ('X-Ldap-Template', '(cn=%(username)s)'),
+        'binddn': ('X-Ldap-BindDN', ''),
+        'bindpasswd': ('X-Ldap-BindPass', ''),
+        'cookiename': ('X-CookieName', '')
+    }
 
     @classmethod
     def set_params(cls, params):
@@ -212,7 +214,7 @@ class LDAPAuthHandler(AuthHandler):
                 return
 
             ctx['action'] = 'initializing LDAP connection'
-            ldap_obj = ldap.initialize(ctx['url']);
+            ldap_obj = ldap.initialize(ctx['url'])
 
             # Python-ldap module documentation advises to always
             # explicitely set the LDAP version to use after running
@@ -221,7 +223,7 @@ class LDAPAuthHandler(AuthHandler):
             #
             # Also, the STARTTLS extension requires the
             # use of LDAPv3 (RFC2830).
-            ldap_obj.protocol_version=ldap.VERSION3
+            ldap_obj.protocol_version = ldap.VERSION3
 
             # Establish a STARTTLS connection if required by the
             # headers.
@@ -243,8 +245,7 @@ class LDAPAuthHandler(AuthHandler):
                               (ctx['url'], ctx['basedn'], searchfilter))
 
             ctx['action'] = 'running search query'
-            results = ldap_obj.search_s(ctx['basedn'], ldap.SCOPE_SUBTREE,
-                                          searchfilter, ['objectclass'], 1)
+            results = ldap_obj.search_s(ctx['basedn'], ldap.SCOPE_SUBTREE, searchfilter, ['objectclass'], 1)
 
             ctx['action'] = 'verifying search query results'
 
@@ -279,6 +280,7 @@ class LDAPAuthHandler(AuthHandler):
         except:
             self.auth_failed(ctx)
 
+
 def exit_handler(signal, frame):
     global Listen
 
@@ -287,60 +289,44 @@ def exit_handler(signal, frame):
             os.unlink(Listen)
         except:
             ex, value, trace = sys.exc_info()
-            sys.stderr.write('Failed to remove socket "%s": %s\n' %
-                             (Listen, str(value)))
+            sys.stderr.write('Failed to remove socket "%s": %s\n' % (Listen, str(value)))
             sys.stderr.flush()
     sys.exit(0)
 
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="""Simple Nginx LDAP authentication helper.""")
+    parser = argparse.ArgumentParser(description="""Simple Nginx LDAP authentication helper.""")
     # Group for listen options:
     group = parser.add_argument_group("Listen options")
-    group.add_argument('--host',  metavar="hostname",
-        default="localhost", help="host to bind (Default: localhost)")
-    group.add_argument('-p', '--port', metavar="port", type=int,
-        default=8888, help="port to bind (Default: 8888)")
+    group.add_argument('--host', metavar="hostname", default="localhost", help="host to bind (Default: localhost)")
+    group.add_argument('-p', '--port', metavar="port", type=int, default=8888, help="port to bind (Default: 8888)")
     # ldap options:
     group = parser.add_argument_group(title="LDAP options")
-    group.add_argument('-u', '--url', metavar="URL",
-        default="ldap://localhost:389",
-        help=("LDAP URI to query (Default: ldap://localhost:389)"))
-    group.add_argument('-s', '--starttls', metavar="starttls",
-        default="false",
-        help=("Establish a STARTTLS protected session (Default: false)"))
-    group.add_argument('--disable-referrals', metavar="disable_referrals",
-        default="false",
-        help=("Sets ldap.OPT_REFERRALS to zero (Default: false)"))
-    group.add_argument('-b', metavar="baseDn", dest="basedn", default='',
-        help="LDAP base dn (Default: unset)")
-    group.add_argument('-D', metavar="bindDn", dest="binddn", default='',
-        help="LDAP bind DN (Default: anonymous)")
-    group.add_argument('-w', metavar="passwd", dest="bindpw", default='',
-        help="LDAP password for the bind DN (Default: unset)")
-    group.add_argument('-f', '--filter', metavar='filter',
-        default='(cn=%(username)s)',
-        help="LDAP filter (Default: cn=%%(username)s)")
+    group.add_argument('-u', '--url', metavar="URL", default="ldap://localhost:389", help=("LDAP URI to query (Default: ldap://localhost:389)"))
+    group.add_argument('-s', '--starttls', metavar="starttls", default="false", help=("Establish a STARTTLS protected session (Default: false)"))
+    group.add_argument('--disable-referrals', metavar="disable_referrals", default="false", help=("Sets ldap.OPT_REFERRALS to zero (Default: false)"))
+    group.add_argument('-b', metavar="baseDn", dest="basedn", default='', help="LDAP base dn (Default: unset)")
+    group.add_argument('-D', metavar="bindDn", dest="binddn", default='', help="LDAP bind DN (Default: anonymous)")
+    group.add_argument('-w', metavar="passwd", dest="bindpw", default='', help="LDAP password for the bind DN (Default: unset)")
+    group.add_argument('-f', '--filter', metavar='filter', default='(cn=%(username)s)', help="LDAP filter (Default: cn=%%(username)s)")
     # http options:
     group = parser.add_argument_group(title="HTTP options")
-    group.add_argument('-R', '--realm', metavar='"Restricted Area"',
-        default="Restricted", help='HTTP auth realm (Default: "Restricted")')
-    group.add_argument('-c', '--cookie', metavar="cookiename",
-        default="", help="HTTP cookie name to set in (Default: unset)")
+    group.add_argument('-R', '--realm', metavar='"Restricted Area"', default="Restricted", help='HTTP auth realm (Default: "Restricted")')
+    group.add_argument('-c', '--cookie', metavar="cookiename", default="", help="HTTP cookie name to set in (Default: unset)")
 
     args = parser.parse_args()
     global Listen
     Listen = (args.host, args.port)
     auth_params = {
-             'realm': ('X-Ldap-Realm', args.realm),
-             'url': ('X-Ldap-URL', args.url),
-             'starttls': ('X-Ldap-Starttls', args.starttls),
-             'disable_referrals': ('X-Ldap-DisableReferrals', args.disable_referrals),
-             'basedn': ('X-Ldap-BaseDN', args.basedn),
-             'template': ('X-Ldap-Template', args.filter),
-             'binddn': ('X-Ldap-BindDN', args.binddn),
-             'bindpasswd': ('X-Ldap-BindPass', args.bindpw),
-             'cookiename': ('X-CookieName', args.cookie)
+        'realm': ('X-Ldap-Realm', args.realm),
+        'url': ('X-Ldap-URL', args.url),
+        'starttls': ('X-Ldap-Starttls', args.starttls),
+        'disable_referrals': ('X-Ldap-DisableReferrals', args.disable_referrals),
+        'basedn': ('X-Ldap-BaseDN', args.basedn),
+        'template': ('X-Ldap-Template', args.filter),
+        'binddn': ('X-Ldap-BindDN', args.binddn),
+        'bindpasswd': ('X-Ldap-BindPass', args.bindpw),
+        'cookiename': ('X-CookieName', args.cookie)
     }
     LDAPAuthHandler.set_params(auth_params)
     server = AuthHTTPServer(Listen, LDAPAuthHandler)
